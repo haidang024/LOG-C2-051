@@ -1,0 +1,128 @@
+# Runtime configuration — LOG-C2-051 Cargo Claim Preparation Agent
+# These values are read at runtime; secrets are NOT stored here.
+# See agent.yaml for static identity and secret declarations.
+
+max_retry: 3
+timeout_s: 60
+memory_enabled: false
+llm_provider: "azure_openai"
+llm_model: "azure-openai-deployment"
+
+# Supported transport modes (iso-codes)
+supported_modes:
+  - "sea"
+  - "air"
+  - "road"
+  - "multimodal_standard"   # sea+road or air+road (2-leg only)
+
+# Supported incident classes
+supported_incident_classes:
+  - "damage"
+  - "shortage"
+  - "delay"
+  - "total_loss"
+  - "contamination"
+
+# Evidence checklist configuration
+checklist:
+  version: "1.3.0"
+  path: "config/checklists/evidence_checklist_v1.3.0.yaml"
+  # Common documents required for all modes/classes
+  common_required:
+    - "commercial_invoice"
+    - "packing_list"
+    - "transport_contract"   # B/L, AWB, or CMR depending on mode
+  # Mode-specific additions
+  sea_required:
+    - "bill_of_lading"
+    - "mates_receipt"
+    - "survey_report"
+    - "outturn_report"
+  air_required:
+    - "air_waybill"
+    - "arrival_notice"
+  road_required:
+    - "cmr_waybill"
+  # Incident-class additions
+  damage_required:
+    - "damage_photos"
+    - "inspection_certificate"
+  shortage_required:
+    - "short_delivery_note"
+  total_loss_required:
+    - "total_loss_certificate"
+  contamination_required:
+    - "contamination_analysis_report"
+
+# Policy corpus configuration
+policy_corpus:
+  version: "2024-Q3"
+  staleness_threshold_days: 90   # Corpus older than this triggers REVIEW_REQUIRED
+  supported_jurisdictions:
+    - "UKJLAW"   # UK/Jones Act
+    - "GERMAN"
+    - "SGLAW"
+    - "JPLAW"
+  icc_clause_versions:
+    - "ICC-A-2009"
+    - "ICC-B-2009"
+    - "ICC-C-2009"
+  require_exact_policy_schedule_linkage: true
+
+# Deadline rules by mode × incident class (days from discovery date)
+deadline_rules:
+  version: "1.1.0"
+  default_notice_window_days: 14
+  urgent_threshold_days: 5
+  warning_threshold_days: 10
+  rules:
+    sea_damage:
+      clause: "Institute Cargo Clauses Notice Provision"
+      notice_window_days: 3
+      urgent_threshold_days: 1
+    sea_shortage:
+      clause: "Hague-Visby Rules Art. III Rule 6"
+      notice_window_days: 3
+      urgent_threshold_days: 1
+    air_damage:
+      clause: "Montreal Convention Art. 31"
+      notice_window_days: 14
+      urgent_threshold_days: 5
+    air_shortage:
+      clause: "Montreal Convention Art. 31"
+      notice_window_days: 7
+      urgent_threshold_days: 3
+    road_damage:
+      clause: "CMR Convention Art. 30"
+      notice_window_days: 7
+      urgent_threshold_days: 3
+
+# Assessment configuration
+assessment:
+  require_evidence_for_eligible: true
+  force_review_on_stale_corpus: true
+  force_review_on_absent_policy: true
+  force_review_on_conflicting_evidence: true
+  # LLM is used for prose narrative only — enum outcome is deterministic
+  llm_max_tokens: 512
+
+# Output configuration
+output:
+  template_version: "1.0.0"
+  format: "markdown_plus_json"
+  artifact_status: "preliminary_not_submitted"
+  mandatory_disclaimer: >
+    PRELIMINARY ONLY — This document is a preparatory claim brief for
+    broker/insurer review. It does not constitute a submitted claim,
+    legal advice, final coverage determination, or payment entitlement.
+    All findings must be reviewed and confirmed by a qualified broker
+    and the insurer before any action is taken.
+
+# Retention policy (days to retain claim preparation artefacts)
+retention:
+  days: 90
+  basis: "date_of_generation"
+
+# HITL — disabled for this template (deterministic workflow)
+hitl:
+  enabled: false
